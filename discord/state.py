@@ -182,7 +182,20 @@ class ConnectionState:
             if attr.startswith('parse_'):
                 parsers[attr[6:].upper()] = func
 
+        # ports being used by subprocesses for communication with voice clients while processing audio from Discord
+        self.voice_processing_ports = {}
+
         self.clear()
+
+    def add_vp_port(self, vc):
+        port = 1727
+        while port in self.voice_processing_ports:
+            port += 1
+        self.voice_processing_ports[port] = vc
+        return port
+
+    def remove_vp_port(self, port):
+        del self.voice_processing_ports[port]
 
     def clear(self):
         self.user = None
@@ -383,7 +396,7 @@ class ConnectionState:
         return channel or Object(id=channel_id), guild
 
     async def chunker(self, guild_id, query='', limit=0, presences=False, *, nonce=None):
-        ws = self._get_websocket(guild_id) # This is ignored upstream
+        ws = self._get_websocket(guild_id)  # This is ignored upstream
         await ws.request_chunks(guild_id, query=query, limit=limit, presences=presences, nonce=nonce)
 
     async def query_members(self, guild, query, limit, user_ids, cache, presences):
@@ -397,10 +410,12 @@ class ConnectionState:
 
         try:
             # start the query operation
-            await ws.request_chunks(guild_id, query=query, limit=limit, user_ids=user_ids, presences=presences, nonce=request.nonce)
+            await ws.request_chunks(guild_id, query=query, limit=limit, user_ids=user_ids, presences=presences,
+                                    nonce=request.nonce)
             return await asyncio.wait_for(request.wait(), timeout=30.0)
         except asyncio.TimeoutError:
-            log.warning('Timed out waiting for chunks with query %r and limit %d for guild_id %d', query, limit, guild_id)
+            log.warning('Timed out waiting for chunks with query %r and limit %d for guild_id %d', query, limit,
+                        guild_id)
             raise
 
     async def _delay_ready(self):
@@ -438,7 +453,7 @@ class ConnectionState:
             try:
                 del self._ready_state
             except AttributeError:
-                pass # already been deleted somehow
+                pass  # already been deleted somehow
 
         except asyncio.CancelledError:
             pass
@@ -571,7 +586,7 @@ class ConnectionState:
             emoji = self._upgrade_partial_emoji(emoji)
             try:
                 reaction = message._remove_reaction(data, emoji, raw.user_id)
-            except (AttributeError, ValueError): # eventual consistency lol
+            except (AttributeError, ValueError):  # eventual consistency lol
                 pass
             else:
                 user = self._get_reaction_user(message.channel, raw.user_id)
@@ -589,7 +604,7 @@ class ConnectionState:
         if message is not None:
             try:
                 reaction = message._clear_emoji(emoji)
-            except (AttributeError, ValueError): # eventual consistency lol
+            except (AttributeError, ValueError):  # eventual consistency lol
                 pass
             else:
                 if reaction:
@@ -1097,6 +1112,7 @@ class ConnectionState:
     def create_message(self, *, channel, data):
         return Message(state=self, channel=channel, data=data)
 
+
 class AutoShardedConnectionState(ConnectionState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1161,8 +1177,8 @@ class AutoShardedConnectionState(ConnectionState):
                 await utils.sane_wait_for(futures, timeout=timeout)
             except asyncio.TimeoutError:
                 log.warning('Shard ID %s failed to wait for chunks (timeout=%.2f) for %d guilds', shard_id,
-                                                                                                  timeout,
-                                                                                                  len(guilds))
+                            timeout,
+                            len(guilds))
             for guild in children:
                 if guild.unavailable is False:
                     self.dispatch('guild_available', guild)
@@ -1175,7 +1191,7 @@ class AutoShardedConnectionState(ConnectionState):
         try:
             del self._ready_state
         except AttributeError:
-            pass # already been deleted somehow
+            pass  # already been deleted somehow
 
         # regular users cannot shard so we won't worry about it here.
 
