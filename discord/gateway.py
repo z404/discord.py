@@ -714,6 +714,7 @@ class DiscordVoiceWebSocket:
         self._keep_alive = None
         self._close_code = None
         self.secret_key = None
+        self.ssrc_event = None
         self.ssrc_map = {}
         if hook:
             self._hook = hook
@@ -827,14 +828,15 @@ class DiscordVoiceWebSocket:
             self._keep_alive.start()
         elif op == self.SPEAKING:
             ssrc = data['ssrc']
-            user = int(data['user_id'])
-            speaking = data['speaking']
-            if ssrc in self.ssrc_map:
-                self.ssrc_map[ssrc]['speaking'] = speaking
-            else:
-                self.ssrc_map.update({ssrc: {'user_id': user, 'speaking': speaking}})
+            ssrc_data = {'user_id': data['user_id'], 'speaking': data['speaking']}
+            self.ssrc_map[ssrc] = ssrc_data
+            if self.ssrc_event:
+                self.ssrc_event({ssrc: ssrc_data})
             
         await self._hook(self, msg)
+
+    def set_ssrc_event(self, event):
+        self.ssrc_event = event
 
     async def initial_connection(self, data):
         state = self._connection
