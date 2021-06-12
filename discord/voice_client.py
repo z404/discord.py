@@ -43,13 +43,14 @@ import socket
 import logging
 import struct
 import threading
-import select
 import time
 import pickle
 import subprocess
 import os
 import json
 from typing import Any, Callable
+import importlib
+from pathlib import Path
 
 from . import opus, utils
 from .backoff import ExponentialBackoff
@@ -57,8 +58,6 @@ from .gateway import *
 from .errors import ClientException, ConnectionClosed, RecordingException
 from .player import AudioPlayer, AudioSource
 from .sink import Sink, RawData
-# Used for discord.__file__ which is for getting voice_subprocess.py
-import importlib
 try:
     import nacl.secret
 
@@ -738,13 +737,17 @@ class VoiceClient(VoiceProtocol):
             raise RecordingException("Must provide a Sink object.")
 
         self.sink = sink
+        self.recording = True
 
         self.voice_sp_port = self._state.add_vp_port(self)
         spec = importlib.util.find_spec("discord")
         voice_sp = os.path.join(os.path.abspath(os.path.split(spec.origin)[0]), 'voice_subprocess.py')
-        self.voice_sp = subprocess.Popen([sys.executable, voice_sp, f'{self.endpoint_ip}:{self.voice_port}',
-                                          f'127.0.0.1:{self.voice_sp_port}', pickle.dumps(self.sink),
-                                          json.dumps(self.ws.ssrc_map)])
+        self.voice_sp = subprocess.Popen('cd ' + str(Path().absolute())+";" +
+                                         " ".join([sys.executable, voice_sp, f'{self.endpoint_ip}:{self.voice_port}',
+                                         f'127.0.0.1:{self.voice_sp_port}', json.dumps(self.ws.ssrc_map)]),
+                                         stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+
+        self.socket.sendto(pickle.dumps(self.sink), ('127.0.0.1', self.voice_sp_port))
         self.ws.set_ssrc_event(self.on_ssrc_event)
         threading.Thread(target=self.wait_for_subprocess, args=(callback, *args)).start()
 
@@ -790,12 +793,14 @@ class VoiceClient(VoiceProtocol):
 
         self._state.remove_vp_port(self.voice_sp_port)
 
-        sink, err = pickle.loads(self.voice_sp.communicate())
-        if err:
-            print(f"Error from subprocess: {err}")
+        if self.voice_sp.stderr:
+            print(f"Subprocess raised an error: {self.voice_sp.stderr.read().decode('utf-8')}")
+            return
+        if self.voice_sp.stdout is None:
+            print("Subprocess did not return any output")
             return
 
-        self.sink = pickle.loads(bytes(sink))
+        self.sink = pickle.loads(bytes(self.voice_sp.stdout.read().decode('utf-8')))
         callback = asyncio.run_coroutine_threadsafe(callback(self.sink, *args), self.loop)
         result = callback.result()
 
