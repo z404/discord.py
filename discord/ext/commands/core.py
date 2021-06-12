@@ -402,7 +402,7 @@ class Command(_BaseCommand):
 
             This bypasses all mechanisms -- including checks, converters,
             invoke hooks, cooldowns, etc. You must take care to pass
-            the proper arguments and types to this function.
+            the proper arguments and discord_types to this function.
 
         .. versionadded:: 1.3
         """
@@ -1931,7 +1931,7 @@ def cooldown(rate, per, type=BucketType.default):
         The type of cooldown to have. If callable, should return a key for the mapping.
 
         .. versionchanged:: 1.7
-            Callables are now supported for custom bucket types.
+            Callables are now supported for custom bucket discord_types.
     """
 
     def decorator(func):

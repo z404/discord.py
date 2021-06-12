@@ -32,7 +32,7 @@ from .enums import TeamMembershipState, try_enum
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .types.team import (
+    from .discord_types.team import (
         Team as TeamPayload,
         TeamMember as TeamMemberPayload,
     )

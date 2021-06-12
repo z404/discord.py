@@ -39,12 +39,12 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from .types.invite import (
+    from .discord_types.invite import (
         Invite as InvitePayload,
         InviteGuild as InviteGuildPayload,
         GatewayInvite as GatewayInvitePayload,
     )
-    from .types.channel import (
+    from .discord_types.channel import (
         PartialChannel as InviteChannelPayload,
     )
     from .state import ConnectionState

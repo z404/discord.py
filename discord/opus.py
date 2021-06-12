@@ -111,7 +111,7 @@ def _err_ne(result, func, args):
 
 # A list of exported functions.
 # The first argument is obviously the name.
-# The second one are the types of arguments it takes.
+# The second one are the discord_types of arguments it takes.
 # The third is the result type.
 # The fourth is the error handler.
 exported_functions = [

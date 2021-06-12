@@ -36,7 +36,7 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from .types.channel import StageInstance as StageInstancePayload
+    from .discord_types.channel import StageInstance as StageInstancePayload
     from .state import ConnectionState
     from .channel import StageChannel
     from .guild import Guild

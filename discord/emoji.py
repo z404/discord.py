@@ -35,7 +35,7 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from .types.emoji import Emoji as EmojiPayload
+    from .discord_types.emoji import Emoji as EmojiPayload
     from .guild import Guild
     from .state import ConnectionState
     from .abc import Snowflake

@@ -54,7 +54,7 @@ __all__ = (
 
 if TYPE_CHECKING:
     from .abc import SnowflakeTime
-    from .types.guild import (
+    from .discord_types.guild import (
         Ban as BanPayload
     )
     from .permissions import Permissions

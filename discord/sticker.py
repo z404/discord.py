@@ -37,7 +37,7 @@ __all__ = (
 if TYPE_CHECKING:
     import datetime
     from .state import ConnectionState
-    from .types.message import Sticker as StickerPayload
+    from .discord_types.message import Sticker as StickerPayload
 
 
 class Sticker(Hashable):

@@ -38,7 +38,7 @@ __all__ = (
 if TYPE_CHECKING:
     from .state import ConnectionState
     from datetime import datetime
-    from .types.message import PartialEmoji as PartialEmojiPayload
+    from .discord_types.message import PartialEmoji as PartialEmojiPayload
 
 class _EmojiTag:
     __slots__ = ()

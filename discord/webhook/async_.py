@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     from ..file import File
     from ..embeds import Embed
     from ..mentions import AllowedMentions
-    from ..types.webhook import (
+    from ..discord_types.webhook import (
         Webhook as WebhookPayload,
     )
     from ..guild import Guild

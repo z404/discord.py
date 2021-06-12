@@ -45,8 +45,8 @@ __all__ = (
 
 if TYPE_CHECKING:
     from .view import View
-    from ..types.components import SelectMenu as SelectMenuPayload
-    from ..types.interactions import (
+    from ..discord_types.components import SelectMenu as SelectMenuPayload
+    from ..discord_types.interactions import (
         ComponentInteractionData,
     )
 

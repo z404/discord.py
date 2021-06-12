@@ -35,7 +35,7 @@ from .enums import Status, try_enum
 if TYPE_CHECKING:
     import datetime
     from .state import ConnectionState
-    from .types.widget import (
+    from .discord_types.widget import (
         WidgetMember as WidgetMemberPayload,
         Widget as WidgetPayload,
     )
