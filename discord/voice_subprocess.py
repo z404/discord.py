@@ -29,6 +29,7 @@ import select
 import time
 import struct
 import json
+import traceback
 
 from .opus import DecodeManager
 from .sink import RawData
@@ -38,11 +39,22 @@ class AudioProcessor:
     def __init__(self):
         self.address = sys.argv[0]
         self.local_address = sys.argv[1]
-        self.sink = pickle.loads(bytes(sys.argv[2]))
-        self.ssrc_map = json.loads(" ".join(sys.argv[3:]))
+        self.ssrc_map = json.loads(" ".join(sys.argv[2:]))
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.setblocking(False)
+        while True:
+            ready, _, err = select.select([self.socket], [],
+                                          [self.socket], 0.01)
+            if not ready:
+                if err:
+                    print(f"Socket error: {err}")
+                continue
+
+            data, address = self.socket.recvfrom(4096)
+            if address == self.local_address:
+                self.sink = pickle.loads(data)
+                break
 
         self.decoder = DecodeManager(self)
         self.paused = False
@@ -86,6 +98,7 @@ class AudioProcessor:
             except OSError:
                 self.stop_recording()
                 continue
+
 
             if address == self.local_address:
                 action = data.decode('utf-8').split('--')
@@ -143,6 +156,7 @@ class AudioProcessor:
         while data.ssrc not in self.ssrc_map:
             time.sleep(0.05)
         self.sink.write(data.decoded_data, self.ssrc_map[data.ssrc]['user_id'])
+
 
 
 if __name__ == '__main__':

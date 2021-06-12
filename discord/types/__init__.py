@@ -8,3 +8,5 @@ Typings for the Discord API
 :license: MIT, see LICENSE for more details.
 
 """
+
+from types import MappingProxyType, DynamicClassAttribute
