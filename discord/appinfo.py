@@ -31,7 +31,7 @@ from .asset import Asset
 
 if TYPE_CHECKING:
     from .guild import Guild
-    from .types.appinfo import AppInfo as AppInfoPayload, PartialAppInfo as PartialAppInfoPayload
+    from .discord_types.appinfo import AppInfo as AppInfoPayload, PartialAppInfo as PartialAppInfoPayload
 
     from .state import ConnectionState
 

@@ -41,12 +41,12 @@ from . import __version__, utils
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from .types import (
+    from .discord_types import (
         interactions,
         invite,
         stage_instance,
     )
-    from .types.snowflake import Snowflake
+    from .discord_types.snowflake import Snowflake
 
     T = TypeVar('T')
     Response = Coroutine[Any, Any, T]

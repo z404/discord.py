@@ -34,7 +34,7 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from .types.template import Template as TemplatePayload
+    from .discord_types.template import Template as TemplatePayload
 
 
 class _FriendlyHttpAttributeErrorHelper:

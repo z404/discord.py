@@ -1497,7 +1497,7 @@ class DMChannel(discord.abc.Messageable, Hashable):
     def permissions_for(self, user=None):
         """Handles permission resolution for a :class:`User`.
 
-        This function is there for compatibility with other channel types.
+        This function is there for compatibility with other channel discord_types.
 
         Actual direct messages do not really have the concept of permissions.
 
@@ -1638,7 +1638,7 @@ class GroupChannel(discord.abc.Messageable, Hashable):
     def permissions_for(self, user):
         """Handles permission resolution for a :class:`User`.
 
-        This function is there for compatibility with other channel types.
+        This function is there for compatibility with other channel discord_types.
 
         Actual direct messages do not really have the concept of permissions.
 

@@ -38,7 +38,7 @@ __all__ = (
 
 if TYPE_CHECKING:
     import datetime
-    from .types.role import (
+    from .discord_types.role import (
         Role as RolePayload,
         RoleTags as RoleTagPayload,
     )

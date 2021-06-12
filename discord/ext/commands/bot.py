@@ -804,7 +804,7 @@ class BotBase(GroupMixin):
 
     @property
     def extensions(self):
-        """Mapping[:class:`str`, :class:`py:types.ModuleType`]: A read-only mapping of extension name to extension."""
+        """Mapping[:class:`str`, :class:`py:discord_types.ModuleType`]: A read-only mapping of extension name to extension."""
         return types.MappingProxyType(self.__extensions)
 
     # help command stuff

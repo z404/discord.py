@@ -43,7 +43,7 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from .types.interactions import (
+    from .discord_types.interactions import (
         Interaction as InteractionPayload,
     )
     from .guild import Guild

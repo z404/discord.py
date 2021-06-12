@@ -392,9 +392,9 @@ class Loop(Generic[LF]):
             self._task.cancel()
 
     def add_exception_type(self, *exceptions: Type[BaseException]) -> None:
-        r"""Adds exception types to be handled during the reconnect logic.
+        r"""Adds exception discord_types to be handled during the reconnect logic.
 
-        By default the exception types handled are those handled by
+        By default the exception discord_types handled are those handled by
         :meth:`discord.Client.connect`\, which includes a lot of internet disconnection
         errors.
 
@@ -421,7 +421,7 @@ class Loop(Generic[LF]):
         self._valid_exception = (*self._valid_exception, *exceptions)
 
     def clear_exception_types(self) -> None:
-        """Removes all exception types that are handled.
+        """Removes all exception discord_types that are handled.
 
         .. note::
 
@@ -430,7 +430,7 @@ class Loop(Generic[LF]):
         self._valid_exception = tuple()
 
     def remove_exception_type(self, *exceptions: Type[BaseException]) -> bool:
-        r"""Removes exception types from being handled during the reconnect logic.
+        r"""Removes exception discord_types from being handled during the reconnect logic.
 
         Parameters
         ------------

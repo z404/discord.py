@@ -91,7 +91,7 @@ t.ActivityFlags = {
 """
 
 if TYPE_CHECKING:
-    from .types.activity import (
+    from .discord_types.activity import (
         ActivityTimestamps,
         ActivityParty,
         ActivityAssets,
@@ -103,17 +103,17 @@ class BaseActivity:
     """The base activity that all user-settable activities inherit from.
     A user-settable activity is one that can be used in :meth:`Client.change_presence`.
 
-    The following types currently count as user-settable:
+    The following discord_types currently count as user-settable:
 
     - :class:`Activity`
     - :class:`Game`
     - :class:`Streaming`
     - :class:`CustomActivity`
 
-    Note that although these types are considered user-settable by the library,
+    Note that although these discord_types are considered user-settable by the library,
     Discord typically ignores certain combinations of activity depending on
     what is currently set. This behaviour may change in the future so there are
-    no guarantees on whether Discord will actually let you set these types.
+    no guarantees on whether Discord will actually let you set these discord_types.
 
     .. versionadded:: 1.3
     """

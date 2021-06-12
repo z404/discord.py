@@ -1,5 +1,5 @@
 """
-discord.types
+discord.discord_types
 ~~~~~~~~~~~~~~
 
 Typings for the Discord API

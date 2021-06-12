@@ -30,7 +30,7 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from .types.message import AllowedMentions as AllowedMentionsPayload
+    from .discord_types.message import AllowedMentions as AllowedMentionsPayload
     from .abc import Snowflake
 
 

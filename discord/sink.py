@@ -130,7 +130,7 @@ class Sink(Filters):
         Parameters
         ----------
         encoding: :class:`string`
-            The encoding to use. Valid types include wav, mp3, and pcm (even though it's not an actual encoding).
+            The encoding to use. Valid discord_types include wav, mp3, and pcm (even though it's not an actual encoding).
         output_path: :class:`string`
             A path to where the audio files should be output.
 

@@ -30,7 +30,7 @@ from .utils import get_slots, MISSING
 from .partial_emoji import PartialEmoji, _EmojiTag
 
 if TYPE_CHECKING:
-    from .types.components import (
+    from .discord_types.components import (
         Component as ComponentPayload,
         ButtonComponent as ButtonComponentPayload,
         SelectMenu as SelectMenuPayload,

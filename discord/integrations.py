@@ -40,7 +40,7 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from .types.integration import (
+    from .discord_types.integration import (
         IntegrationAccount as IntegrationAccountPayload,
         Integration as IntegrationPayload,
         StreamIntegration as StreamIntegrationPayload,

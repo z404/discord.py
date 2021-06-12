@@ -48,7 +48,7 @@ from .mixins import Hashable
 from .sticker import Sticker
 
 if TYPE_CHECKING:
-    from .types.message import (
+    from .discord_types.message import (
         Message as MessagePayload,
         Attachment as AttachmentPayload,
         MessageReference as MessageReferencePayload,
@@ -57,11 +57,11 @@ if TYPE_CHECKING:
         Reaction as ReactionPayload,
     )
 
-    from .types.components import Component as ComponentPayload
+    from .discord_types.components import Component as ComponentPayload
 
-    from .types.member import Member as MemberPayload
-    from .types.user import User as UserPayload
-    from .types.embed import Embed as EmbedPayload
+    from .discord_types.member import Member as MemberPayload
+    from .discord_types.user import User as UserPayload
+    from .discord_types.embed import Embed as EmbedPayload
     from .abc import Snowflake
     from .abc import GuildChannel
     from .state import ConnectionState
@@ -194,7 +194,7 @@ class Attachment(Hashable):
             more often, compared to the regular URL which is generally deleted right
             after the message is deleted. Note that this can still fail to download
             deleted attachments if too much time has passed and it does not work
-            on some types of attachments.
+            on some discord_types of attachments.
 
         Raises
         --------
@@ -233,7 +233,7 @@ class Attachment(Hashable):
             more often, compared to the regular URL which is generally deleted right
             after the message is deleted. Note that this can still fail to download
             deleted attachments if too much time has passed and it does not work
-            on some types of attachments.
+            on some discord_types of attachments.
 
         Raises
         ------
@@ -269,7 +269,7 @@ class Attachment(Hashable):
             more often, compared to the regular URL which is generally deleted right
             after the message is deleted. Note that this can still fail to download
             deleted attachments if too much time has passed and it does not work
-            on some types of attachments.
+            on some discord_types of attachments.
 
             .. versionadded:: 1.4
         spoiler: :class:`bool`

@@ -42,16 +42,16 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from .types.audit_log import (
+    from .discord_types.audit_log import (
         AuditLog as AuditLogPayload,
     )
-    from .types.guild import (
+    from .discord_types.guild import (
         Guild as GuildPayload,
     )
-    from .types.message import (
+    from .discord_types.message import (
         Message as MessagePayload,
     )
-    from .types.user import (
+    from .discord_types.user import (
         PartialUser as PartialUserPayload,
     )
 

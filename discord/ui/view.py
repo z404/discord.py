@@ -47,7 +47,7 @@ __all__ = (
 
 if TYPE_CHECKING:
     from ..interactions import Interaction
-    from ..types.components import Component as ComponentPayload
+    from ..discord_types.components import Component as ComponentPayload
     from ..state import ConnectionState
 
 
