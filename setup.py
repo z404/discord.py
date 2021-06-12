@@ -44,7 +44,7 @@ extras_require = {
 
 packages = [
     'discord',
-    'discord.types',
+    'discord.discord_types',
     'discord.ui',
     'discord.webhook',
     'discord.ext.commands',
