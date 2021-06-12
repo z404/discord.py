@@ -155,11 +155,10 @@ class AudioProcessor:
         data.decoded_data = struct.pack('<h', 0) * silence + data.decoded_data
         while data.ssrc not in self.ssrc_map:
             time.sleep(0.05)
+
         self.sink.write(data.decoded_data, self.ssrc_map[data.ssrc]['user_id'])
 
 
-
-if __name__ == '__main__':
-    audio_proc = AudioProcessor()
-    audio_proc.run()
-    sys.exit()
+audio_proc = AudioProcessor()
+audio_proc.run()
+sys.exit()
