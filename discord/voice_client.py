@@ -58,8 +58,7 @@ from .errors import ClientException, ConnectionClosed, RecordingException
 from .player import AudioPlayer, AudioSource
 from .sink import Sink, RawData
 # Used for discord.__file__ which is for getting voice_subprocess.py
-from .. import discord
-
+import importlib
 try:
     import nacl.secret
 
@@ -741,9 +740,10 @@ class VoiceClient(VoiceProtocol):
         self.sink = sink
 
         self.voice_sp_port = self._state.add_vp_port(self)
-        voice_sp = os.path.join(os.path.abspath(discord.__file__), 'voice_subprocess.py')
+        spec = importlib.util.find_spec("discord")
+        voice_sp = os.path.join(os.path.abspath(os.path.split(spec.origin)[0]), 'voice_subprocess.py')
         self.voice_sp = subprocess.Popen([sys.executable, voice_sp, f'{self.endpoint_ip}:{self.voice_port}',
-                                          f'127.0.0.1:{self.voice_sp_port}',  pickle.dumps(self.sink),
+                                          f'127.0.0.1:{self.voice_sp_port}', pickle.dumps(self.sink),
                                           json.dumps(self.ws.ssrc_map)])
         self.ws.set_ssrc_event(self.on_ssrc_event)
         threading.Thread(target=self.wait_for_subprocess, args=(callback, *args)).start()
