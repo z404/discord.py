@@ -29,7 +29,7 @@ import logging
 import signal
 import sys
 import traceback
-from typing import Any, Callable, Coroutine, Dict, Generator, Iterable, List, Optional, Sequence, TYPE_CHECKING, Tuple, TypeVar, Union
+from typing import Any, Callable, Coroutine, Dict, Generator, List, Optional, Sequence, TYPE_CHECKING, Tuple, TypeVar, Union
 
 import aiohttp
 
@@ -76,7 +76,7 @@ __all__ = (
 Coro = TypeVar('Coro', bound=Callable[..., Coroutine[Any, Any, Any]])
 
 
-log: logging.Logger = logging.getLogger(__name__)
+_log = logging.getLogger(__name__)
 
 def _cancel_tasks(loop: asyncio.AbstractEventLoop) -> None:
     tasks = {t for t in asyncio.all_tasks(loop=loop) if not t.done()}
@@ -84,12 +84,12 @@ def _cancel_tasks(loop: asyncio.AbstractEventLoop) -> None:
     if not tasks:
         return
 
-    log.info('Cleaning up after %d tasks.', len(tasks))
+    _log.info('Cleaning up after %d tasks.', len(tasks))
     for task in tasks:
         task.cancel()
 
     loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-    log.info('All tasks finished cancelling.')
+    _log.info('All tasks finished cancelling.')
 
     for task in tasks:
         if task.cancelled():
@@ -106,7 +106,7 @@ def _cleanup_loop(loop: asyncio.AbstractEventLoop) -> None:
         _cancel_tasks(loop)
         loop.run_until_complete(loop.shutdown_asyncgens())
     finally:
-        log.info('Closing the event loop.')
+        _log.info('Closing the event loop.')
         loop.close()
 
 class Client:
@@ -187,7 +187,7 @@ class Client:
     enable_debug_events: :class:`bool`
         Whether to enable events that are useful only for debugging gateway related information.
 
-        Right now this involves :func:`on_socket_raw_receive` and :func`:`on_socket_raw_send`. If
+        Right now this involves :func:`on_socket_raw_receive` and :func:`on_socket_raw_send`. If
         this is ``False`` then those events will not be dispatched (due to performance considerations).
         To enable these events, this must be set to ``True``. Defaults to ``False``.
 
@@ -206,6 +206,7 @@ class Client:
         loop: Optional[asyncio.AbstractEventLoop] = None,
         **options: Any,
     ):
+        # self.ws is set in the connect method
         self.ws: DiscordWebSocket = None  # type: ignore
         self.loop: asyncio.AbstractEventLoop = asyncio.get_event_loop() if loop is None else loop
         self._listeners: Dict[str, List[Tuple[asyncio.Future, Callable[..., bool]]]] = {}
@@ -236,7 +237,7 @@ class Client:
 
         if VoiceClient.warn_nacl:
             VoiceClient.warn_nacl = False
-            log.warning("PyNaCl is not installed, voice will NOT be supported")
+            _log.warning("PyNaCl is not installed, voice will NOT be supported")
 
     # internals
 
@@ -362,7 +363,7 @@ class Client:
         return asyncio.create_task(wrapped, name=f'discord.py: {event_name}')
 
     def dispatch(self, event: str, *args: Any, **kwargs: Any) -> None:
-        log.debug('Dispatching event %s', event)
+        _log.debug('Dispatching event %s', event)
         method = 'on_' + event
 
         listeners = self._listeners.get(event)
@@ -467,7 +468,7 @@ class Client:
             passing status code.
         """
 
-        log.info('logging in using static token')
+        _log.info('logging in using static token')
 
         data = await self.http.static_login(token.strip())
         self._connection.user = ClientUser(state=self._connection, data=data)
@@ -510,7 +511,7 @@ class Client:
                 while True:
                     await self.ws.poll_event()
             except ReconnectWebSocket as e:
-                log.info('Got a request to %s the websocket.', e.op)
+                _log.info('Got a request to %s the websocket.', e.op)
                 self.dispatch('disconnect')
                 ws_params.update(sequence=self.ws.sequence, resume=e.resume, session=self.ws.session_id)
                 continue
@@ -549,7 +550,7 @@ class Client:
                         raise
 
                 retry = backoff.delay()
-                log.exception("Attempting a reconnect in %.2fs", retry)
+                _log.exception("Attempting a reconnect in %.2fs", retry)
                 await asyncio.sleep(retry)
                 # Always try to RESUME the connection
                 # If the connection is not RESUME-able then the gateway will invalidate the session.
@@ -651,10 +652,10 @@ class Client:
         try:
             loop.run_forever()
         except KeyboardInterrupt:
-            log.info('Received signal to terminate bot and event loop.')
+            _log.info('Received signal to terminate bot and event loop.')
         finally:
             future.remove_done_callback(stop_loop_on_completion)
-            log.info('Cleaning up tasks.')
+            _log.info('Cleaning up tasks.')
             _cleanup_loop(loop)
 
         if not future.cancelled():
@@ -682,9 +683,30 @@ class Client:
         if value is None:
             self._connection._activity = None
         elif isinstance(value, BaseActivity):
-            self._connection._activity = value.to_dict()
+            # ConnectionState._activity is typehinted as ActivityPayload, we're passing Dict[str, Any]
+            self._connection._activity = value.to_dict() # type: ignore
         else:
             raise TypeError('activity must derive from BaseActivity.')
+    
+    @property
+    def status(self):
+        """:class:`.Status`:
+        The status being used upon logging on to Discord.
+
+        .. versionadded: 2.0
+        """
+        if self._connection._status in set(state.value for state in Status):
+            return Status(self._connection._status)
+        return Status.online
+
+    @status.setter
+    def status(self, value):
+        if value is Status.offline:
+            self._connection._status = 'invisible'
+        elif isinstance(value, Status):
+            self._connection._status = str(value)
+        else:
+            raise TypeError('status must derive from Status.')
 
     @property
     def allowed_mentions(self) -> Optional[AllowedMentions]:
@@ -716,8 +738,8 @@ class Client:
         """List[:class:`~discord.User`]: Returns a list of all the users the bot can see."""
         return list(self._connection._users.values())
 
-    def get_channel(self, id: int) -> Optional[Union[GuildChannel, PrivateChannel]]:
-        """Returns a channel with the given ID.
+    def get_channel(self, id: int, /) -> Optional[Union[GuildChannel, Thread, PrivateChannel]]:
+        """Returns a channel or thread with the given ID.
 
         Parameters
         -----------
@@ -726,7 +748,7 @@ class Client:
 
         Returns
         --------
-        Optional[Union[:class:`.abc.GuildChannel`, :class:`.abc.PrivateChannel`]]
+        Optional[Union[:class:`.abc.GuildChannel`, :class:`.Thread`, :class:`.abc.PrivateChannel`]]
             The returned channel or ``None`` if not found.
         """
         return self._connection.get_channel(id)
@@ -743,7 +765,7 @@ class Client:
         -----------
         id: :class:`int`
             The channel ID to create a partial messageable for.
-        type: Optional[:class:`ChannelType`]
+        type: Optional[:class:`.ChannelType`]
             The underlying channel type for the partial messageable.
 
         Returns
@@ -753,7 +775,7 @@ class Client:
         """
         return PartialMessageable(state=self._connection, id=id, type=type)
 
-    def get_stage_instance(self, id) -> Optional[StageInstance]:
+    def get_stage_instance(self, id: int, /) -> Optional[StageInstance]:
         """Returns a stage instance with the given stage channel ID.
 
         .. versionadded:: 2.0
@@ -775,7 +797,7 @@ class Client:
         if isinstance(channel, StageChannel):
             return channel.instance
 
-    def get_guild(self, id) -> Optional[Guild]:
+    def get_guild(self, id: int, /) -> Optional[Guild]:
         """Returns a guild with the given ID.
 
         Parameters
@@ -790,7 +812,7 @@ class Client:
         """
         return self._connection._get_guild(id)
 
-    def get_user(self, id) -> Optional[User]:
+    def get_user(self, id: int, /) -> Optional[User]:
         """Returns a user with the given ID.
 
         Parameters
@@ -805,7 +827,7 @@ class Client:
         """
         return self._connection.get_user(id)
 
-    def get_emoji(self, id) -> Optional[Emoji]:
+    def get_emoji(self, id: int, /) -> Optional[Emoji]:
         """Returns an emoji with the given ID.
 
         Parameters
@@ -820,7 +842,7 @@ class Client:
         """
         return self._connection.get_emoji(id)
 
-    def get_sticker(self, id: int) -> Optional[GuildSticker]:
+    def get_sticker(self, id: int, /) -> Optional[GuildSticker]:
         """Returns a guild sticker with the given ID.
 
         .. versionadded:: 2.0
@@ -1019,7 +1041,7 @@ class Client:
             raise TypeError('event registered must be a coroutine function')
 
         setattr(self, coro.__name__, coro)
-        log.debug('%s has successfully been registered as an event', coro.__name__)
+        _log.debug('%s has successfully been registered as an event', coro.__name__)
         return coro
 
     async def change_presence(
@@ -1169,7 +1191,7 @@ class Client:
         data = await self.http.get_template(code)
         return Template(data=data, state=self._connection) # type: ignore
 
-    async def fetch_guild(self, guild_id: int) -> Guild:
+    async def fetch_guild(self, guild_id: int, /) -> Guild:
         """|coro|
 
         Retrieves a :class:`.Guild` from an ID.
@@ -1258,7 +1280,7 @@ class Client:
             data = await self.http.create_guild(name, region_value, icon_base64)
         return Guild(data=data, state=self._connection)
 
-    async def fetch_stage_instance(self, channel_id: int) -> StageInstance:
+    async def fetch_stage_instance(self, channel_id: int, /) -> StageInstance:
         """|coro|
 
         Gets a :class:`.StageInstance` for a stage channel id.
@@ -1358,7 +1380,7 @@ class Client:
 
     # Miscellaneous stuff
 
-    async def fetch_widget(self, guild_id: int) -> Widget:
+    async def fetch_widget(self, guild_id: int, /) -> Widget:
         """|coro|
 
         Gets a :class:`.Widget` from a guild ID.
@@ -1408,7 +1430,7 @@ class Client:
             data['rpc_origins'] = None
         return AppInfo(self._connection, data)
 
-    async def fetch_user(self, user_id: int) -> User:
+    async def fetch_user(self, user_id: int, /) -> User:
         """|coro|
 
         Retrieves a :class:`~discord.User` based on their ID.
@@ -1439,7 +1461,7 @@ class Client:
         data = await self.http.get_user(user_id)
         return User(state=self._connection, data=data)
 
-    async def fetch_channel(self, channel_id: int) -> Union[GuildChannel, PrivateChannel, Thread]:
+    async def fetch_channel(self, channel_id: int, /) -> Union[GuildChannel, PrivateChannel, Thread]:
         """|coro|
 
         Retrieves a :class:`.abc.GuildChannel`, :class:`.abc.PrivateChannel`, or :class:`.Thread` with the specified ID.
@@ -1473,15 +1495,18 @@ class Client:
             raise InvalidData('Unknown channel type {type} for channel ID {id}.'.format_map(data))
 
         if ch_type in (ChannelType.group, ChannelType.private):
-            channel = factory(me=self.user, data=data, state=self._connection)
+            # the factory will be a DMChannel or GroupChannel here
+            channel = factory(me=self.user, data=data, state=self._connection) # type: ignore
         else:
-            guild_id = int(data['guild_id'])
+            # the factory can't be a DMChannel or GroupChannel here
+            guild_id = int(data['guild_id']) # type: ignore
             guild = self.get_guild(guild_id) or Object(id=guild_id)
-            channel = factory(guild=guild, state=self._connection, data=data)
+            # GuildChannels expect a Guild, we may be passing an Object
+            channel = factory(guild=guild, state=self._connection, data=data) # type: ignore
 
         return channel
 
-    async def fetch_webhook(self, webhook_id: int) -> Webhook:
+    async def fetch_webhook(self, webhook_id: int, /) -> Webhook:
         """|coro|
 
         Retrieves a :class:`.Webhook` with the specified ID.
@@ -1503,7 +1528,7 @@ class Client:
         data = await self.http.get_webhook(webhook_id)
         return Webhook.from_state(data, state=self._connection)
 
-    async def fetch_sticker(self, sticker_id: int) -> Union[StandardSticker, GuildSticker]:
+    async def fetch_sticker(self, sticker_id: int, /) -> Union[StandardSticker, GuildSticker]:
         """|coro|
 
         Retrieves a :class:`.Sticker` with the specified ID.

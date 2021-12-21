@@ -42,6 +42,7 @@ if TYPE_CHECKING:
         Role as RolePayload,
         RoleTags as RoleTagPayload,
     )
+    from .types.guild import RolePositionUpdate
     from .guild import Guild
     from .member import Member
     from .state import ConnectionState
@@ -336,7 +337,7 @@ class Role(Hashable):
         else:
             roles.append(self.id)
 
-        payload = [{"id": z[0], "position": z[1]} for z in zip(roles, change_range)]
+        payload: List[RolePositionUpdate] = [{"id": z[0], "position": z[1]} for z in zip(roles, change_range)]
         await http.move_role_position(self.guild.id, payload, reason=reason)
 
     async def edit(
@@ -350,7 +351,7 @@ class Role(Hashable):
         mentionable: bool = MISSING,
         position: int = MISSING,
         reason: Optional[str] = MISSING,
-    ) -> None:
+    ) -> Optional[Role]:
         """|coro|
 
         Edits the role.
@@ -362,6 +363,9 @@ class Role(Hashable):
 
         .. versionchanged:: 1.4
             Can now pass ``int`` to ``colour`` keyword-only parameter.
+
+        .. versionchanged:: 2.0
+            Edits are no longer in-place, the newly edited role is returned instead.
 
         Parameters
         -----------
@@ -390,11 +394,14 @@ class Role(Hashable):
         InvalidArgument
             An invalid position was given or the default
             role was asked to be moved.
-        """
 
+        Returns
+        --------
+        :class:`Role`
+            The newly edited role.
+        """
         if position is not MISSING:
             await self._move(position, reason=reason)
-            self.position = position
 
         payload: Dict[str, Any] = {}
         if color is not MISSING:
@@ -419,7 +426,7 @@ class Role(Hashable):
             payload['mentionable'] = mentionable
 
         data = await self._state.http.edit_role(self.guild.id, self.id, reason=reason, **payload)
-        self._update(data)
+        return Role(guild=self.guild, data=data, state=self._state)
 
     async def delete(self, *, reason: Optional[str] = None) -> None:
         """|coro|

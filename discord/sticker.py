@@ -51,7 +51,8 @@ if TYPE_CHECKING:
         Sticker as StickerPayload,
         StandardSticker as StandardStickerPayload,
         GuildSticker as GuildStickerPayload,
-        ListPremiumStickerPacks as ListPremiumStickerPacksPayload
+        ListPremiumStickerPacks as ListPremiumStickerPacksPayload,
+        EditGuildSticker,
     )
 
 
@@ -440,10 +441,10 @@ class GuildSticker(Sticker):
         description: str = MISSING,
         emoji: str = MISSING,
         reason: Optional[str] = None,
-    ) -> None:
+    ) -> GuildSticker:
         """|coro|
 
-        Edits a :class:`Sticker` for the guild.
+        Edits a :class:`GuildSticker` for the guild.
 
         Parameters
         -----------
@@ -462,8 +463,13 @@ class GuildSticker(Sticker):
             You are not allowed to edit stickers.
         HTTPException
             An error occurred editing the sticker.
+
+        Returns
+        --------
+        :class:`GuildSticker`
+            The newly modified sticker.
         """
-        payload = {}
+        payload: EditGuildSticker = {}
 
         if name is not MISSING:
             payload['name'] = name
@@ -482,8 +488,7 @@ class GuildSticker(Sticker):
             payload['tags'] = emoji
 
         data: GuildStickerPayload = await self._state.http.modify_guild_sticker(self.guild_id, self.id, payload, reason)
-
-        self._from_data(data)
+        return GuildSticker(state=self._state, data=data)
 
     async def delete(self, *, reason: Optional[str] = None) -> None:
         """|coro|

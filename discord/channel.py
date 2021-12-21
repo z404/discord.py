@@ -86,6 +86,7 @@ if TYPE_CHECKING:
         StoreChannel as StoreChannelPayload,
         GroupDMChannel as GroupChannelPayload,
     )
+    from .types.snowflake import SnowflakeList
 
 
 async def _single_delete_strategy(messages: Iterable[Message]):
@@ -229,7 +230,7 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
 
         .. versionadded:: 2.0
         """
-        return [thread for thread in self.guild.threads if thread.parent_id == self.id]
+        return [thread for thread in self.guild._threads.values() if thread.parent_id == self.id]
 
     def is_nsfw(self) -> bool:
         """:class:`bool`: Checks if the channel is NSFW."""
@@ -275,11 +276,11 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
         default_auto_archive_duration: ThreadArchiveDuration = ...,
         type: ChannelType = ...,
         overwrites: Mapping[Union[Role, Member, Snowflake], PermissionOverwrite] = ...,
-    ) -> None:
+    ) -> Optional[TextChannel]:
         ...
 
     @overload
-    async def edit(self) -> None:
+    async def edit(self) -> Optional[TextChannel]:
         ...
 
     async def edit(self, *, reason=None, **options):
@@ -295,6 +296,9 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
 
         .. versionchanged:: 1.4
             The ``type`` keyword-only parameter was added.
+
+        .. versionchanged:: 2.0
+            Edits are no longer in-place, the newly edited channel is returned instead.
 
         Parameters
         ----------
@@ -337,8 +341,18 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
             You do not have permissions to edit the channel.
         HTTPException
             Editing the channel failed.
+
+        Returns
+        --------
+        Optional[:class:`.TextChannel`]
+            The newly edited text channel. If the edit was only positional
+            then ``None`` is returned instead.
         """
-        await self._edit(options, reason=reason)
+
+        payload = await self._edit(options, reason=reason)
+        if payload is not None:
+            # the payload will always be the proper channel payload
+            return self.__class__(state=self._state, guild=self.guild, data=payload)  # type: ignore
 
     @utils.copy_doc(discord.abc.GuildChannel.clone)
     async def clone(self, *, name: Optional[str] = None, reason: Optional[str] = None) -> TextChannel:
@@ -392,7 +406,7 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
         if len(messages) > 100:
             raise ClientException('Can only bulk delete messages up to 100 messages')
 
-        message_ids: List[int] = [m.id for m in messages]
+        message_ids: SnowflakeList = [m.id for m in messages]
         await self._state.http.delete_messages(self.id, message_ids)
 
     async def purge(
@@ -662,7 +676,7 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
         *,
         name: str,
         message: Optional[Snowflake] = None,
-        auto_archive_duration: ThreadArchiveDuration = 1440,
+        auto_archive_duration: ThreadArchiveDuration = MISSING,
         type: Optional[ChannelType] = None,
         reason: Optional[str] = None,
     ) -> Thread:
@@ -670,15 +684,8 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
 
         Creates a thread in this text channel.
 
-        If no starter message is passed with the ``message`` parameter then
-        you must have :attr:`~discord.Permissions.send_messages` and
-        :attr:`~discord.Permissions.use_private_threads` in order to create the thread
-        if the ``type`` parameter is :attr:`~discord.ChannelType.private_thread`.
-        Otherwise :attr:`~discord.Permissions.use_threads` is needed.
-
-        If a starter message is passed with the ``message`` parameter then
-        you must have :attr:`~discord.Permissions.send_messages` and
-        :attr:`~discord.Permissions.use_threads` in order to create the thread.
+        To create a public thread, you must have :attr:`~discord.Permissions.create_public_threads`.
+        For a private thread, :attr:`~discord.Permissions.create_private_threads` is needed instead.
 
         .. versionadded:: 2.0
 
@@ -692,7 +699,7 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
             Defaults to ``None``.
         auto_archive_duration: :class:`int`
             The duration in minutes before a thread is automatically archived for inactivity.
-            Defaults to ``1440`` or 24 hours.
+            If not provided, the channel's default auto archive duration is used.
         type: Optional[:class:`ChannelType`]
             The type of thread to create. If a ``message`` is passed then this parameter
             is ignored, as a thread created with a message is always a public thread.
@@ -720,7 +727,7 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
             data = await self._state.http.start_thread_without_message(
                 self.id,
                 name=name,
-                auto_archive_duration=auto_archive_duration,
+                auto_archive_duration=auto_archive_duration or self.default_auto_archive_duration,
                 type=type.value,
                 reason=reason,
             )
@@ -729,7 +736,7 @@ class TextChannel(discord.abc.Messageable, discord.abc.GuildChannel, Hashable):
                 self.id,
                 message.id,
                 name=name,
-                auto_archive_duration=auto_archive_duration,
+                auto_archive_duration=auto_archive_duration or self.default_auto_archive_duration,
                 reason=reason,
             )
 
@@ -957,11 +964,11 @@ class VoiceChannel(VocalGuildChannel):
         rtc_region: Optional[VoiceRegion] = ...,
         video_quality_mode: VideoQualityMode = ...,
         reason: Optional[str] = ...,
-    ) -> None:
+    ) -> Optional[VoiceChannel]:
         ...
 
     @overload
-    async def edit(self) -> None:
+    async def edit(self) -> Optional[VoiceChannel]:
         ...
 
     async def edit(self, *, reason=None, **options):
@@ -974,6 +981,9 @@ class VoiceChannel(VocalGuildChannel):
 
         .. versionchanged:: 1.3
             The ``overwrites`` keyword-only parameter was added.
+
+        .. versionchanged:: 2.0
+            Edits are no longer in-place, the newly edited channel is returned instead.
 
         Parameters
         ----------
@@ -1014,9 +1024,18 @@ class VoiceChannel(VocalGuildChannel):
             You do not have permissions to edit the channel.
         HTTPException
             Editing the channel failed.
+
+        Returns
+        --------
+        Optional[:class:`.VoiceChannel`]
+            The newly edited voice channel. If the edit was only positional
+            then ``None`` is returned instead.
         """
 
-        await self._edit(options, reason=reason)
+        payload = await self._edit(options, reason=reason)
+        if payload is not None:
+            # the payload will always be the proper channel payload
+            return self.__class__(state=self._state, guild=self.guild, data=payload)  # type: ignore
 
 
 class StageChannel(VocalGuildChannel):
@@ -1224,11 +1243,11 @@ class StageChannel(VocalGuildChannel):
         rtc_region: Optional[VoiceRegion] = ...,
         video_quality_mode: VideoQualityMode = ...,
         reason: Optional[str] = ...,
-    ) -> None:
+    ) -> Optional[StageChannel]:
         ...
 
     @overload
-    async def edit(self) -> None:
+    async def edit(self) -> Optional[StageChannel]:
         ...
 
     async def edit(self, *, reason=None, **options):
@@ -1241,6 +1260,9 @@ class StageChannel(VocalGuildChannel):
 
         .. versionchanged:: 2.0
             The ``topic`` parameter must now be set via :attr:`create_instance`.
+
+        .. versionchanged:: 2.0
+            Edits are no longer in-place, the newly edited channel is returned instead.
 
         Parameters
         ----------
@@ -1275,9 +1297,18 @@ class StageChannel(VocalGuildChannel):
             You do not have permissions to edit the channel.
         HTTPException
             Editing the channel failed.
+
+        Returns
+        --------
+        Optional[:class:`.StageChannel`]
+            The newly edited stage channel. If the edit was only positional
+            then ``None`` is returned instead.
         """
 
-        await self._edit(options, reason=reason)
+        payload = await self._edit(options, reason=reason)
+        if payload is not None:
+            # the payload will always be the proper channel payload
+            return self.__class__(state=self._state, guild=self.guild, data=payload)  # type: ignore
 
 
 class CategoryChannel(discord.abc.GuildChannel, Hashable):
@@ -1366,11 +1397,11 @@ class CategoryChannel(discord.abc.GuildChannel, Hashable):
         nsfw: bool = ...,
         overwrites: Mapping[Union[Role, Member], PermissionOverwrite] = ...,
         reason: Optional[str] = ...,
-    ) -> None:
+    ) -> Optional[CategoryChannel]:
         ...
 
     @overload
-    async def edit(self) -> None:
+    async def edit(self) -> Optional[CategoryChannel]:
         ...
 
     async def edit(self, *, reason=None, **options):
@@ -1383,6 +1414,9 @@ class CategoryChannel(discord.abc.GuildChannel, Hashable):
 
         .. versionchanged:: 1.3
             The ``overwrites`` keyword-only parameter was added.
+
+        .. versionchanged:: 2.0
+            Edits are no longer in-place, the newly edited channel is returned instead.
 
         Parameters
         ----------
@@ -1406,9 +1440,18 @@ class CategoryChannel(discord.abc.GuildChannel, Hashable):
             You do not have permissions to edit the category.
         HTTPException
             Editing the category failed.
+
+        Returns
+        --------
+        Optional[:class:`.CategoryChannel`]
+            The newly edited category channel. If the edit was only positional
+            then ``None`` is returned instead.
         """
 
-        await self._edit(options=options, reason=reason)
+        payload = await self._edit(options, reason=reason)
+        if payload is not None:
+            # the payload will always be the proper channel payload
+            return self.__class__(state=self._state, guild=self.guild, data=payload)  # type: ignore
 
     @utils.copy_doc(discord.abc.GuildChannel.move)
     async def move(self, **kwargs):
@@ -1598,11 +1641,11 @@ class StoreChannel(discord.abc.GuildChannel, Hashable):
         category: Optional[CategoryChannel],
         reason: Optional[str],
         overwrites: Mapping[Union[Role, Member], PermissionOverwrite],
-    ) -> None:
+    ) -> Optional[StoreChannel]:
         ...
 
     @overload
-    async def edit(self) -> None:
+    async def edit(self) -> Optional[StoreChannel]:
         ...
 
     async def edit(self, *, reason=None, **options):
@@ -1612,6 +1655,9 @@ class StoreChannel(discord.abc.GuildChannel, Hashable):
 
         You must have the :attr:`~Permissions.manage_channels` permission to
         use this.
+
+        .. versionchanged:: 2.0
+            Edits are no longer in-place, the newly edited channel is returned instead.
 
         Parameters
         ----------
@@ -1644,8 +1690,18 @@ class StoreChannel(discord.abc.GuildChannel, Hashable):
             You do not have permissions to edit the channel.
         HTTPException
             Editing the channel failed.
+
+        Returns
+        --------
+        Optional[:class:`.StoreChannel`]
+            The newly edited store channel. If the edit was only positional
+            then ``None`` is returned instead.
         """
-        await self._edit(options, reason=reason)
+
+        payload = await self._edit(options, reason=reason)
+        if payload is not None:
+            # the payload will always be the proper channel payload
+            return self.__class__(state=self._state, guild=self.guild, data=payload)  # type: ignore
 
 
 DMC = TypeVar('DMC', bound='DMChannel')
@@ -1709,6 +1765,7 @@ class DMChannel(discord.abc.Messageable, Hashable):
         self._state = state
         self.id = channel_id
         self.recipient = None
+        # state.user won't be None here
         self.me = state.user  # type: ignore
         return self
 

@@ -120,6 +120,9 @@ class _cached_property:
 
 if TYPE_CHECKING:
     from functools import cached_property as cached_property
+
+    from typing_extensions import ParamSpec
+
     from .permissions import Permissions
     from .abc import Snowflake
     from .invite import Invite
@@ -128,6 +131,8 @@ if TYPE_CHECKING:
     class _RequestLike(Protocol):
         headers: Mapping[str, Any]
 
+
+    P = ParamSpec('P')
 
 else:
     cached_property = _cached_property
@@ -231,8 +236,8 @@ def parse_time(timestamp: Optional[str]) -> Optional[datetime.datetime]:
     return None
 
 
-def copy_doc(original: Callable[..., Any]) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    def decorator(overriden: Callable[..., Any]) -> Callable[..., Any]:
+def copy_doc(original: Callable) -> Callable[[T], T]:
+    def decorator(overriden: T) -> T:
         overriden.__doc__ = original.__doc__
         overriden.__signature__ = _signature(original)  # type: ignore
         return overriden
@@ -240,10 +245,10 @@ def copy_doc(original: Callable[..., Any]) -> Callable[[Callable[..., Any]], Cal
     return decorator
 
 
-def deprecated(instead: Optional[str] = None) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    def actual_decorator(func: Callable[..., T]) -> Callable[..., T]:
+def deprecated(instead: Optional[str] = None) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    def actual_decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
-        def decorated(*args, **kwargs) -> T:
+        def decorated(*args: P.args, **kwargs: P.kwargs) -> T:
             warnings.simplefilter('always', DeprecationWarning)  # turn off filter
             if instead:
                 fmt = "{0.__name__} is deprecated, use {1} instead."
@@ -267,7 +272,7 @@ def oauth_url(
     redirect_uri: str = MISSING,
     scopes: Iterable[str] = MISSING,
     disable_guild_select: bool = False,
-):
+) -> str:
     """A helper function that returns the OAuth2 URL for inviting the bot
     into guilds.
 
@@ -479,17 +484,17 @@ def _bytes_to_base64_data(data: bytes) -> str:
 
 if HAS_ORJSON:
 
-    def to_json(obj: Any) -> str:  # type: ignore
+    def _to_json(obj: Any) -> str:  # type: ignore
         return orjson.dumps(obj).decode('utf-8')
 
-    from_json = orjson.loads  # type: ignore
+    _from_json = orjson.loads  # type: ignore
 
 else:
 
-    def to_json(obj: Any) -> str:
+    def _to_json(obj: Any) -> str:
         return json.dumps(obj, separators=(',', ':'), ensure_ascii=True)
 
-    from_json = json.loads
+    _from_json = json.loads
 
 
 def _parse_ratelimit_header(request: Any, *, use_clock: bool = False) -> float:

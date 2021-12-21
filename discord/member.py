@@ -34,6 +34,7 @@ from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING, Tuple, Typ
 import discord.abc
 
 from . import utils
+from .asset import Asset
 from .utils import MISSING
 from .user import BaseUser, User, _UserTag
 from .activity import create_activity, ActivityTypes
@@ -48,11 +49,13 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from .channel import VoiceChannel, StageChannel
+    from .asset import Asset
+    from .channel import DMChannel, VoiceChannel, StageChannel
+    from .flags import PublicUserFlags
     from .guild import Guild
     from .types.activity import PartialPresenceUpdate
     from .types.member import (
-        GatewayMember as GatewayMemberPayload,
+        MemberWithUser as MemberWithUserPayload,
         Member as MemberPayload,
         UserWithMember as UserWithMemberPayload,
     )
@@ -261,6 +264,7 @@ class Member(discord.abc.Messageable, _UserTag):
         '_client_status',
         '_user',
         '_state',
+        '_avatar',
     )
 
     if TYPE_CHECKING:
@@ -270,14 +274,17 @@ class Member(discord.abc.Messageable, _UserTag):
         bot: bool
         system: bool
         created_at: datetime.datetime
-        default_avatar = User.default_avatar
-        avatar = User.avatar
-        dm_channel = User.dm_channel
+        default_avatar: Asset
+        avatar: Optional[Asset]
+        dm_channel: Optional[DMChannel]
         create_dm = User.create_dm
-        mutual_guilds = User.mutual_guilds
-        public_flags = User.public_flags
+        mutual_guilds: List[Guild]
+        public_flags: PublicUserFlags
+        banner: Optional[Asset]
+        accent_color: Optional[Colour]
+        accent_colour: Optional[Colour]
 
-    def __init__(self, *, data: GatewayMemberPayload, guild: Guild, state: ConnectionState):
+    def __init__(self, *, data: MemberWithUserPayload, guild: Guild, state: ConnectionState):
         self._state: ConnectionState = state
         self._user: User = state.store_user(data['user'])
         self.guild: Guild = guild
@@ -288,6 +295,7 @@ class Member(discord.abc.Messageable, _UserTag):
         self.activities: Tuple[ActivityTypes, ...] = tuple()
         self.nick: Optional[str] = data.get('nick', None)
         self.pending: bool = data.get('pending', False)
+        self._avatar: Optional[str] = data.get('avatar')
 
     def __str__(self) -> str:
         return str(self._user)
@@ -344,6 +352,7 @@ class Member(discord.abc.Messageable, _UserTag):
         self.pending = member.pending
         self.activities = member.activities
         self._state = member._state
+        self._avatar = member._avatar
 
         # Reference will not be copied unless necessary by PRESENCE_UPDATE
         # See below
@@ -369,6 +378,7 @@ class Member(discord.abc.Messageable, _UserTag):
 
         self.premium_since = utils.parse_time(data.get('premium_since'))
         self._roles = utils.SnowflakeList(map(int, data['roles']))
+        self._avatar = data.get('avatar')
 
     def _presence_update(self, data: PartialPresenceUpdate, user: UserPayload) -> Optional[Tuple[User, User]]:
         self.activities = tuple(map(create_activity, data['activities']))
@@ -494,6 +504,29 @@ class Member(discord.abc.Messageable, _UserTag):
         return self.nick or self.name
 
     @property
+    def display_avatar(self) -> Asset:
+        """:class:`Asset`: Returns the member's display avatar.
+
+        For regular members this is just their avatar, but
+        if they have a guild specific avatar then that
+        is returned instead.
+
+        .. versionadded:: 2.0
+        """
+        return self.guild_avatar or self._user.avatar or self._user.default_avatar
+
+    @property
+    def guild_avatar(self) -> Optional[Asset]:
+        """Optional[:class:`Asset`]: Returns an :class:`Asset` for the guild avatar
+        the member has. If unavailable, ``None`` is returned.
+
+        .. versionadded:: 2.0
+        """
+        if self._avatar is None:
+            return None
+        return Asset._from_guild_avatar(self._state, self.guild.id, self.id, self._avatar)
+
+    @property
     def activity(self) -> Optional[ActivityTypes]:
         """Optional[Union[:class:`BaseActivity`, :class:`Spotify`]]: Returns the primary
         activity the user is currently doing. Could be ``None`` if no activity is being done.
@@ -611,7 +644,7 @@ class Member(discord.abc.Messageable, _UserTag):
         roles: List[discord.abc.Snowflake] = MISSING,
         voice_channel: Optional[VocalGuildChannel] = MISSING,
         reason: Optional[str] = None,
-    ) -> None:
+    ) -> Optional[Member]:
         """|coro|
 
         Edits the member's data.
@@ -636,6 +669,9 @@ class Member(discord.abc.Messageable, _UserTag):
 
         .. versionchanged:: 1.1
             Can now pass ``None`` to ``voice_channel`` to kick a member from voice.
+
+        .. versionchanged:: 2.0
+            The newly member is now optionally returned, if applicable.
 
         Parameters
         -----------
@@ -664,6 +700,12 @@ class Member(discord.abc.Messageable, _UserTag):
             You do not have the proper permissions to the action requested.
         HTTPException
             The operation failed.
+
+        Returns
+        --------
+        Optional[:class:`.Member`]
+            The newly updated member, if applicable. This is only returned
+            when certain fields are updated.
         """
         http = self._state.http
         guild_id = self.guild.id
@@ -706,7 +748,8 @@ class Member(discord.abc.Messageable, _UserTag):
             payload['roles'] = tuple(r.id for r in roles)
 
         if payload:
-            await http.edit_member(guild_id, self.id, reason=reason, **payload)
+            data = await http.edit_member(guild_id, self.id, reason=reason, **payload)
+            return Member(data=data, guild=self.guild, state=self._state)
 
     async def request_to_speak(self) -> None:
         """|coro|
@@ -847,7 +890,7 @@ class Member(discord.abc.Messageable, _UserTag):
             for role in roles:
                 await req(guild_id, user_id, role.id, reason=reason)
 
-    def get_role(self, role_id: int) -> Optional[Role]:
+    def get_role(self, role_id: int, /) -> Optional[Role]:
         """Returns a role with the given ID from roles which the member has.
 
         .. versionadded:: 2.0

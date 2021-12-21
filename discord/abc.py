@@ -84,6 +84,7 @@ if TYPE_CHECKING:
     from .ui.view import View
     from .types.channel import (
         PermissionOverwrite as PermissionOverwritePayload,
+        Channel as ChannelPayload,
         GuildChannel as GuildChannelPayload,
         OverwriteType,
     )
@@ -121,11 +122,6 @@ class Snowflake(Protocol):
 
     __slots__ = ()
     id: int
-
-    @property
-    def created_at(self) -> datetime:
-        """:class:`datetime.datetime`: Returns the model's creation time as an aware datetime in UTC."""
-        raise NotImplementedError
 
 
 @runtime_checkable
@@ -307,11 +303,8 @@ class GuildChannel:
             payload.append(d)
 
         await http.bulk_channel_update(self.guild.id, payload, reason=reason)
-        self.position = position
-        if parent_id is not _undefined:
-            self.category_id = int(parent_id) if parent_id else None
 
-    async def _edit(self, options: Dict[str, Any], reason: Optional[str]):
+    async def _edit(self, options: Dict[str, Any], reason: Optional[str]) -> Optional[ChannelPayload]:
         try:
             parent = options.pop('category')
         except KeyError:
@@ -390,8 +383,7 @@ class GuildChannel:
             options['type'] = ch_type.value
 
         if options:
-            data = await self._state.http.edit_channel(self.id, reason=reason, **options)
-            self._update(self.guild, data)
+            return await self._state.http.edit_channel(self.id, reason=reason, **options)
 
     def _fill_overwrites(self, data: GuildChannelPayload) -> None:
         self._overwrites = []
@@ -1640,6 +1632,8 @@ class Connectable(Protocol):
 
         Connects to voice and creates a :class:`VoiceClient` to establish
         your connection to the voice server.
+
+        This requires :attr:`Intents.voice_states`.
 
         Parameters
         -----------

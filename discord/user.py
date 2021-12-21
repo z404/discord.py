@@ -35,7 +35,7 @@ from .utils import snowflake_time, _bytes_to_base64_data, MISSING
 
 if TYPE_CHECKING:
     from datetime import datetime
-    
+
     from .channel import DMChannel
     from .guild import Guild
     from .message import Message
@@ -49,7 +49,6 @@ __all__ = (
     'ClientUser',
 )
 
-U = TypeVar('U', bound='User')
 BU = TypeVar('BU', bound='BaseUser')
 
 
@@ -59,7 +58,18 @@ class _UserTag:
 
 
 class BaseUser(_UserTag):
-    __slots__ = ('name', 'id', 'discriminator', '_avatar', '_banner', '_accent_colour', 'bot', 'system', '_public_flags', '_state')
+    __slots__ = (
+        'name',
+        'id',
+        'discriminator',
+        '_avatar',
+        '_banner',
+        '_accent_colour',
+        'bot',
+        'system',
+        '_public_flags',
+        '_state',
+    )
 
     if TYPE_CHECKING:
         name: str
@@ -68,7 +78,7 @@ class BaseUser(_UserTag):
         bot: bool
         system: bool
         _state: ConnectionState
-        _avatar: str
+        _avatar: Optional[str]
         _banner: Optional[str]
         _accent_colour: Optional[str]
         _public_flags: int
@@ -137,21 +147,30 @@ class BaseUser(_UserTag):
         return PublicUserFlags._from_value(self._public_flags)
 
     @property
-    def avatar(self) -> Asset:
-        """:class:`Asset`: Returns an :class:`Asset` for the avatar the user has.
+    def avatar(self) -> Optional[Asset]:
+        """Optional[:class:`Asset`]: Returns an :class:`Asset` for the avatar the user has.
 
-        If the user does not have a traditional avatar, an asset for
-        the default avatar is returned instead.
+        If the user does not have a traditional avatar, ``None`` is returned.
+        If you want the avatar that a user has displayed, consider :attr:`display_avatar`.
         """
-        if self._avatar is None:
-            return Asset._from_default_avatar(self._state, int(self.discriminator) % len(DefaultAvatar))
-        else:
+        if self._avatar is not None:
             return Asset._from_avatar(self._state, self.id, self._avatar)
+        return None
 
     @property
     def default_avatar(self) -> Asset:
         """:class:`Asset`: Returns the default avatar for a given user. This is calculated by the user's discriminator."""
         return Asset._from_default_avatar(self._state, int(self.discriminator) % len(DefaultAvatar))
+
+    @property
+    def display_avatar(self) -> Asset:
+        """:class:`Asset`: Returns the user's display avatar.
+
+        For regular users this is just their default avatar or uploaded avatar.
+
+        .. versionadded:: 2.0
+        """
+        return self.avatar or self.default_avatar
 
     @property
     def banner(self) -> Optional[Asset]:
@@ -309,7 +328,7 @@ class ClientUser(BaseUser):
         locale: Optional[str]
         mfa_enabled: bool
         _flags: int
-        
+
     def __init__(self, *, state: ConnectionState, data: UserPayload) -> None:
         super().__init__(state=state, data=data)
 
@@ -327,7 +346,7 @@ class ClientUser(BaseUser):
         self._flags = data.get('flags', 0)
         self.mfa_enabled = data.get('mfa_enabled', False)
 
-    async def edit(self, *, username: str = MISSING, avatar: bytes = MISSING) -> None:
+    async def edit(self, *, username: str = MISSING, avatar: bytes = MISSING) -> ClientUser:
         """|coro|
 
         Edits the current profile of the client.
@@ -340,6 +359,9 @@ class ClientUser(BaseUser):
             the :term:`py:bytes-like object` is given through the use of ``fp.read()``.
 
             The only image formats supported for uploading is JPEG and PNG.
+
+        .. versionchanged:: 2.0
+            The edit is no longer in-place, instead the newly edited client user is returned.
 
         Parameters
         -----------
@@ -355,6 +377,11 @@ class ClientUser(BaseUser):
             Editing your profile failed.
         InvalidArgument
             Wrong image format passed for ``avatar``.
+
+        Returns
+        ---------
+        :class:`ClientUser`
+            The newly edited client user.
         """
         payload: Dict[str, Any] = {}
         if username is not MISSING:
@@ -364,7 +391,7 @@ class ClientUser(BaseUser):
             payload['avatar'] = _bytes_to_base64_data(avatar)
 
         data: UserPayload = await self._state.http.edit_profile(payload)
-        self._update(data)
+        return ClientUser(state=self._state, data=data)
 
 
 class User(BaseUser, discord.abc.Messageable):
@@ -419,7 +446,7 @@ class User(BaseUser, discord.abc.Messageable):
             pass
 
     @classmethod
-    def _copy(cls: Type[U], user: U) -> U:
+    def _copy(cls, user: User):
         self = super()._copy(user)
         self._stored = False
         return self
