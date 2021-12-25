@@ -13,6 +13,8 @@ discord.py
 
 A modern, easy to use, feature-rich, and async ready API wrapper for Discord written in Python.
 
+This fork of discord.py is the up to date version of discord.py, with the addition of the voice listener API (low level)
+
 The Future of discord.py
 --------------------------
 
